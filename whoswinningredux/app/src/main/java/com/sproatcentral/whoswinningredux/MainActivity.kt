@@ -1,10 +1,14 @@
 package com.sproatcentral.whoswinningredux
 
+import android.content.Intent
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.Menu
+import android.view.MenuItem
+import android.widget.Toolbar
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
@@ -32,7 +36,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -40,6 +43,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -58,8 +62,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -71,15 +77,54 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.sproatcentral.whoswinningredux.ui.theme.WhoswinningreduxTheme
+import io.realm.Realm
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 
 class MainActivity : ComponentActivity() {
+    lateinit var realm: Realm
+
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.settings_menu, menu)
+        return true
+    }
+
+    override fun onMenuItemSelected(featureId: Int, item: MenuItem): Boolean {
+        if (item.itemId == R.id.settings) {
+            val intent = Intent(this, SettingsActivity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            this.startActivity(intent)
+            return true
+        } else {
+            return super.onMenuItemSelected(featureId, item)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        Realm.init(this)
+        realm = Realm.getDefaultInstance()
+        var currentGame : GameScores? = null
+
+        val prefs = this.getSharedPreferences("whosWinning", MODE_PRIVATE)
+
+        if(prefs.contains("currentGame")) {
+            try {
+                currentGame = Json.decodeFromString<GameScores>(
+                    prefs.getString("currentGame", "") ?: ""
+                )
+            } catch(se: IllegalArgumentException) {
+                // never mind
+            }
+        }
+
+        actionBar?.title = getString(R.string.app_name)
+
         setContent {
             WhoswinningreduxTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    ScoreList(innerPadding = innerPadding)
+                    ScoreList(innerPadding = innerPadding, currentGame)
                 }
             }
         }
@@ -87,10 +132,11 @@ class MainActivity : ComponentActivity() {
 
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
-    fun ScoreList(innerPadding: PaddingValues) {
-        val currentGame = remember { mutableStateOf(GameScores()) }
-        val activePlayerIndex = remember { mutableStateOf(-1) }
-        val playersPlusAddCount = remember { mutableIntStateOf(0) }
+    fun ScoreList(innerPadding: PaddingValues, startingGame: GameScores? = null) {
+        val currentGame = remember { mutableStateOf(startingGame ?: GameScores()) }
+        val winnerHighScore = remember { mutableStateOf(true) }
+        val activePlayerIndex = remember { mutableIntStateOf(-1) }
+        val playersPlusAddCount = remember { mutableIntStateOf( currentGame.value.players.size ) }
         val listExpanded = remember { mutableStateOf(false) }
         val currentScoreList = remember { mutableStateOf(listOf<Int>()) }
 
@@ -102,12 +148,12 @@ class MainActivity : ComponentActivity() {
 
         val showRemove = remember { mutableStateOf(false) }
         val removeUser = remember { mutableStateOf(GamePlayer()) }
-        val removeScore = remember { mutableStateOf(-1) }
+        val removeScore = remember { mutableIntStateOf(-1) }
 
         val nameFocusRequester = remember { FocusRequester() }
         val scoreFocusRequester = remember { FocusRequester() }
 
-        var gameSaveImage = remember {
+        val gameSaveImage = remember {
             mutableStateOf(ImageBitmap(500, 300))
         }
 
@@ -116,30 +162,32 @@ class MainActivity : ComponentActivity() {
             val canvas = Canvas(gameSaveImage.value.asAndroidBitmap())
             canvas.drawColor(Color.Gray.toArgb())
             val textPaint = Paint()
-            textPaint.setColor(Color.Black.toArgb())
-            textPaint.setTextSize(180f)
+            textPaint.color = Color.Black.toArgb()
+            textPaint.textSize = 180f
             canvas.drawText(saveGameName.value, 100f, 100f, textPaint)
         }
 
         fun addScore(playerIndex: Int, newScore: Int) {
             currentGame.value.players[playerIndex].addScore(newScore)
+            currentGame.value.saveToPrefs(this)
             currentScoreList.value = currentGame.value.players[playerIndex].scoreList
             listExpanded.value = true
-            activePlayerIndex.value = -1
+            activePlayerIndex.intValue = -1
             Handler(Looper.getMainLooper()).postDelayed({
-                activePlayerIndex.value = playerIndex
+                activePlayerIndex.intValue = playerIndex
             }, 100L)
         }
 
         fun addPlayer(newName: String) {
-            var newPlayer = GamePlayer()
+            val newPlayer = GamePlayer()
             newPlayer.name = newName
             currentGame.value.players.add(newPlayer)
-            activePlayerIndex.value =
+            currentGame.value.saveToPrefs(this)
+            activePlayerIndex.intValue =
                 currentGame.value.players.size - 1
-            playersPlusAddCount.value =
+            playersPlusAddCount.intValue =
                 currentGame.value.players.size
-            currentScoreList.value = listOf<Int>()
+            currentScoreList.value = listOf()
             listExpanded.value = false
         }
 
@@ -166,25 +214,26 @@ class MainActivity : ComponentActivity() {
                         //Spacer(Modifier.weight(0.1f))
                         if (showSaveGame.value) {
                             if (!saveGame.value) {
-                                Text(getString(R.string.save_game))
+                                Text(stringResource(R.string.save_game))
                                 //Spacer(Modifier.weight(0.1f))
                                 Row(horizontalArrangement = Arrangement.Center) {
                                     //Spacer(Modifier.weight(0.3f))
-                                    Button(content = { Text(getString(R.string.yes)) },
+                                    Button(content = { Text(stringResource(R.string.yes)) },
                                         onClick = {
                                             saveGame.value = true
                                         }
                                     )
                                     Spacer(Modifier.weight(0.1f))
-                                    Button(content = { Text(getString(R.string.no)) },
+                                    Button(content = { Text(stringResource(R.string.no)) },
                                         onClick = {
+                                            currentGame.value = GameScores()
                                             showConfirmClose.value = false
                                         }
                                     )
                                     //Spacer(Modifier.weight(0.1f))
                                 }
                             } else {
-                                Text(getString(R.string.save_game_name))
+                                Text(stringResource(R.string.save_game_name))
                                 TextField(
                                     value = saveGameName.value,
                                     onValueChange = { newValue ->
@@ -205,22 +254,28 @@ class MainActivity : ComponentActivity() {
                                         onCheckedChange = {
                                             shareGame.value = it
                                         })
-                                    Text(getString(R.string.share_game))
+                                    Text(stringResource(R.string.share_game))
                                 }
                                 if (shareGame.value) {
                                     Image(
                                         gameSaveImage.value, "",
                                         modifier = Modifier.size(
-                                            (500 / resources.getDisplayMetrics().density).dp,
-                                            (800 / resources.getDisplayMetrics().density).dp
+                                            (500 / resources.displayMetrics.density).dp,
+                                            (800 / resources.displayMetrics.density).dp
                                         )
                                     )
 
                                 }
                                 Button(
                                     onClick = {
-                                        // save to database
-                                        showConfirmClose.value = false
+                                        if(saveGameName.value.isNotEmpty()) {
+                                            // save to database
+
+                                            // clear current game
+                                            currentGame.value = GameScores()
+                                            showConfirmClose.value = false
+                                        }
+
                                     },
                                     content = {
                                         Icon(
@@ -232,17 +287,17 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         } else {
-                            Text(getString(R.string.confirm_end))
+                            Text(stringResource(R.string.confirm_end))
                             //Spacer(Modifier.weight(0.1f))
                             Row(horizontalArrangement = Arrangement.Center) {
                                 //Spacer(Modifier.weight(0.3f))
-                                Button(content = { Text(getString(R.string.yes)) },
+                                Button(content = { Text(stringResource(R.string.yes)) },
                                     onClick = {
                                         showSaveGame.value = true
                                     }
                                 )
                                 Spacer(Modifier.weight(0.1f))
-                                Button(content = { Text(getString(R.string.no)) },
+                                Button(content = { Text(stringResource(R.string.no)) },
                                     onClick = {
                                         showConfirmClose.value = false
                                     }
@@ -262,10 +317,10 @@ class MainActivity : ComponentActivity() {
                 onDismissRequest = {
                     showRemove.value = false
                 },
-                title = { Text(getString(R.string.confirm_remove_score)) },
+                title = { Text(stringResource(R.string.confirm_remove_score)) },
                 dismissButton = {
                     Button(content = {
-                        Text(getString(R.string.no))
+                        Text(stringResource(R.string.no))
                     },
                         onClick = {
                             showRemove.value = false
@@ -274,17 +329,18 @@ class MainActivity : ComponentActivity() {
                 },
                 confirmButton = {
                     Button(content = {
-                        Text(getString(R.string.yes))
+                        Text(stringResource(R.string.yes))
                     },
                         onClick = {
-                            removeUser.value.removeScore(removeScore.value)
+                            removeUser.value.removeScore(removeScore.intValue)
+                            currentGame.value.saveToPrefs(this)
                             currentScoreList.value = removeUser.value.scoreList
                             showRemove.value = false
                             listExpanded.value = true
-                            val currentIndex = activePlayerIndex.value
-                            activePlayerIndex.value = -1
+                            val currentIndex = activePlayerIndex.intValue
+                            activePlayerIndex.intValue = -1
                             Handler(Looper.getMainLooper()).postDelayed({
-                                activePlayerIndex.value = currentIndex
+                                activePlayerIndex.intValue = currentIndex
                             }, 100L)
                         }
                     )
@@ -297,12 +353,12 @@ class MainActivity : ComponentActivity() {
             modifier = Modifier.fillMaxWidth(1.0f)
             //.border(2.dp, Color.Red)
         ) {
-            items(playersPlusAddCount.value) { playerIndex ->
+            items(playersPlusAddCount.intValue) { playerIndex ->
                 if (playerIndex < currentGame.value.players.size) {
                     Column(
                         modifier = Modifier
                             .fillParentMaxWidth(
-                                if (activePlayerIndex.value == playerIndex)
+                                if (activePlayerIndex.intValue == playerIndex)
                                     0.35f
                                 else
                                     0.15f
@@ -312,8 +368,8 @@ class MainActivity : ComponentActivity() {
                         // show player
                         Text(
                             String.format(
-                                getString(R.string.playerNameFormat),
-                                if (currentGame.value.winningIndex.contains(playerIndex))
+                                stringResource(R.string.playerNameFormat),
+                                if (currentGame.value.winningIndex().contains(playerIndex))
                                     "*" else "",
                                 currentGame.value.players[playerIndex].name
                             ),
@@ -321,10 +377,10 @@ class MainActivity : ComponentActivity() {
                             overflow = TextOverflow.Ellipsis,
                             maxLines = 1,
                             modifier = Modifier.clickable {
-                                activePlayerIndex.value = playerIndex
+                                activePlayerIndex.intValue = playerIndex
                                 listExpanded.value = false
                                 currentScoreList.value =
-                                    currentGame.value.players[activePlayerIndex.value].scoreList
+                                    currentGame.value.players[activePlayerIndex.intValue].scoreList
                                 Handler(Looper.getMainLooper()).postDelayed({
                                     scoreFocusRequester.requestFocus()
                                 }, 100L)
@@ -332,7 +388,7 @@ class MainActivity : ComponentActivity() {
                             //.border(2.dp, Color.Green)
                         )
                         if (listExpanded.value &&
-                            activePlayerIndex.value == playerIndex
+                            activePlayerIndex.intValue == playerIndex
                         ) {
                             LazyColumn {
                                 items(currentScoreList.value.size) { scoreIndex ->
@@ -344,25 +400,25 @@ class MainActivity : ComponentActivity() {
                                             .clickable {
                                                 removeUser.value =
                                                     currentGame.value.players[playerIndex]
-                                                removeScore.value = scoreIndex
+                                                removeScore.intValue = scoreIndex
                                                 showRemove.value = true
                                             }
                                     )
                                 }
                             }
                         }
-                        Text(currentGame.value.players[playerIndex].currentScore.toString(),
+                        Text(currentGame.value.players[playerIndex].currentScore().toString(),
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.End,
                             modifier = Modifier
                                 .clickable {
-                                    if (activePlayerIndex.value == playerIndex) {
+                                    if (activePlayerIndex.intValue == playerIndex) {
                                         listExpanded.value = listExpanded.value.not()
                                     } else {
-                                        activePlayerIndex.value = playerIndex
+                                        activePlayerIndex.intValue = playerIndex
                                         listExpanded.value = true
                                         currentScoreList.value =
-                                            currentGame.value.players[activePlayerIndex.value].scoreList
+                                            currentGame.value.players[activePlayerIndex.intValue].scoreList
                                         Handler(Looper.getMainLooper()).postDelayed({
                                             scoreFocusRequester.requestFocus()
                                         }, 1000L)
@@ -371,8 +427,8 @@ class MainActivity : ComponentActivity() {
                                 .fillMaxWidth(1.0f)
                             //.border(2.dp, Color.Yellow)
                         )
-                        if (activePlayerIndex.value == playerIndex) {
-                            var newScoreString =
+                        if (activePlayerIndex.intValue == playerIndex) {
+                            val newScoreString =
                                 remember { mutableStateOf(TextFieldValue("0")) }
                             val newScore = remember { mutableIntStateOf(0) }
 
@@ -380,9 +436,9 @@ class MainActivity : ComponentActivity() {
                                 textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.End),
                                 onValueChange = {
                                     if (it.text.toIntOrNull() != null) {
-                                        newScore.value = it.text.toInt()
+                                        newScore.intValue = it.text.toInt()
                                         newScoreString.value = newScoreString.value.copy(
-                                            newScore.value.toString()
+                                            newScore.intValue.toString()
                                         )
                                     }
                                 },
@@ -393,13 +449,13 @@ class MainActivity : ComponentActivity() {
                                     Icon(Icons.Default.Add, contentDescription = "",
                                         modifier = Modifier
                                             .clickable {
-                                                newScore.value += 1
+                                                newScore.intValue += 1
                                                 newScoreString.value =
                                                     newScoreString.value.copy(
-                                                        newScore.value.toString(),
+                                                        newScore.intValue.toString(),
                                                         selection = TextRange(
                                                             0,
-                                                            newScore.value.toString().length
+                                                            newScore.intValue.toString().length
                                                         )
                                                     )
                                             }
@@ -412,13 +468,13 @@ class MainActivity : ComponentActivity() {
                                         contentDescription = "",
                                         modifier = Modifier
                                             .clickable {
-                                                newScore.value -= 1
+                                                newScore.intValue -= 1
                                                 newScoreString.value =
                                                     newScoreString.value.copy(
-                                                        newScore.value.toString(),
+                                                        newScore.intValue.toString(),
                                                         selection = TextRange(
                                                             0,
-                                                            newScore.value.toString().length
+                                                            newScore.intValue.toString().length
                                                         )
                                                     )
                                             }
@@ -432,13 +488,12 @@ class MainActivity : ComponentActivity() {
                                         if (it.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_ENTER) {
                                             addScore(
                                                 playerIndex,
-                                                newScore.value
+                                                newScore.intValue
                                             )
-                                            newScore.value = 0
+                                            newScore.intValue = 0
                                             newScoreString.value = newScoreString.value.copy(
-                                                newScore.value.toString()
+                                                newScore.intValue.toString()
                                             )
-                                            true
                                         }
                                         false
                                     }
@@ -454,10 +509,10 @@ class MainActivity : ComponentActivity() {
                             )
                             Button(
                                 onClick = {
-                                    addScore(playerIndex, newScore.value)
-                                    newScore.value = 0
+                                    addScore(playerIndex, newScore.intValue)
+                                    newScore.intValue = 0
                                     newScoreString.value = newScoreString.value.copy(
-                                        newScore.value.toString()
+                                        newScore.intValue.toString()
                                     )
                                 },
                                 content = {
@@ -476,29 +531,48 @@ class MainActivity : ComponentActivity() {
                 // new player
                 val newName = remember { mutableStateOf("") }
                 val repeatWarning = remember { mutableStateOf(false) }
-                Column() {
-                    if (activePlayerIndex.value != -1) {
-                        Icon(imageVector = Icons.Default.Settings,
-                            contentDescription = "",
+                Column {
+                    if (activePlayerIndex.intValue != -1) {
+                        Image(
+                            painterResource(id = R.drawable.user),
+                            "",
                             modifier = Modifier.clickable {
-                                activePlayerIndex.value = -1
+                                activePlayerIndex.intValue = -1
                                 Handler(Looper.getMainLooper()).postDelayed({
                                     nameFocusRequester.requestFocus()
                                 }, 100L)
                             }
                         )
                     } else {
+                        Text(text = stringResource(R.string.winner_label),
+                            modifier = Modifier.padding(5.dp))
+                        Row( verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = stringResource(R.string.low_score),
+                                modifier = Modifier.padding(5.dp))
+                            Switch(checked = winnerHighScore.value,
+                                onCheckedChange = {
+                                    winnerHighScore.value = it
+                                    currentGame.value.highScoreWinner = winnerHighScore.value
+                                    currentGame.value.saveToPrefs(this@MainActivity)
+                                    // reset winner
+                                    if(currentGame.value.players.size > 0) {
+                                        activePlayerIndex.intValue = 0
+                                        Handler(Looper.getMainLooper()).postDelayed({
+                                            activePlayerIndex.intValue = -1
+                                        }, 100L)
+                                    }
+                                }
+                            )
+                            Text(text = stringResource(R.string.high_score),
+                                modifier = Modifier.padding(5.dp))
+                        }
                         BasicTextField(
                             newName.value,
                             onValueChange = { currentName: String ->
                                 newName.value = currentName
-                                if (currentGame.value.players.firstOrNull {
-                                        it.name.startsWith(currentName)
-                                    } != null) {
-                                    repeatWarning.value = true
-                                } else {
-                                    repeatWarning.value = false
-                                }
+                                repeatWarning.value = currentGame.value.players.firstOrNull {
+                                    it.name.startsWith(currentName)
+                                } != null
                             },
                             modifier = Modifier
                                 .padding(5.dp)
@@ -516,10 +590,10 @@ class MainActivity : ComponentActivity() {
                             TextFieldDefaults.DecorationBox(
                                 value = newName.value,
                                 enabled = true,
-                                placeholder = { Text(getString(R.string.name_hint)) },
+                                placeholder = { Text(stringResource(R.string.name_hint)) },
                                 innerTextField = it,
                                 singleLine = true,
-                                interactionSource = MutableInteractionSource(),
+                                interactionSource = remember { MutableInteractionSource() } ,
                                 visualTransformation = VisualTransformation.None,
                                 trailingIcon = {
                                     Icon(Icons.Default.Clear,
@@ -532,7 +606,7 @@ class MainActivity : ComponentActivity() {
                         }
                         if (repeatWarning.value) {
                             Text(
-                                getString(R.string.name_exists),
+                                stringResource(R.string.name_exists),
                                 modifier = Modifier.width(IntrinsicSize.Min)
                             )
                         }
@@ -576,7 +650,7 @@ class MainActivity : ComponentActivity() {
     @Preview(showBackground = true)
     @Composable
     fun GreetingPreview() {
-        var firstPlayer = GamePlayer()
+        val firstPlayer = GamePlayer()
         firstPlayer.name = "jerry"
         val currentGame = remember {
             mutableStateOf(GameScores())

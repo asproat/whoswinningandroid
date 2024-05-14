@@ -1,43 +1,77 @@
 package com.sproatcentral.whoswinningredux
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import java.time.Instant
+import android.content.Context
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+import io.realm.RealmObject
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.time.LocalDateTime
+import java.time.ZonedDateTime
 
-class GameScores {
+@Entity
+@Serializable
+class GameScores : RealmObject() {
 
     var gameName = ""
     var highScoreWinner = true
-    var gameSaved = false
-    var gameDate = LocalDateTime.now()
+    @PrimaryKey
+    @io.realm.annotations.PrimaryKey
+    var gameDate = LocalDateTime.now().toEpochSecond(ZonedDateTime.now().offset)
 
     var players = mutableListOf<GamePlayer>()
 
-    var winningIndex : List<Int> = listOf<Int>()
-        get () {
+    fun winningIndex(): List<Int> {
             var winners = mutableListOf<Int>()
             var winningScore = 0
-            var scoreAdjustment = if(highScoreWinner) 1 else -1
+            var scoreAdjustment = if (highScoreWinner) 1 else -1
 
-            for(playerIndex in 0..< players.size) {
-                if(players[playerIndex].currentScore * scoreAdjustment > winningScore) {
+            for (playerIndex in 0..<players.size) {
+                if (players[playerIndex].currentScore() * scoreAdjustment > winningScore) {
                     winners.clear()
                     winners.add(playerIndex)
-                    winningScore = players[playerIndex].currentScore * scoreAdjustment
-                } else if(players[playerIndex].currentScore * scoreAdjustment == winningScore) {
+                    winningScore = players[playerIndex].currentScore() * scoreAdjustment
+                } else if (players[playerIndex].currentScore() * scoreAdjustment == winningScore) {
                     winners.add(playerIndex)
                 }
             }
 
             return winners
         }
+
+    fun saveToPrefs(context: Context) {
+        val prefs = context.getSharedPreferences("whosWinning", Context.MODE_PRIVATE).edit()
+
+        prefs.putString(
+            "currentGame",
+            Json.encodeToString(this)
+        )
+
+        prefs.apply()
+    }
+
+    /*
+    fun dateString(epochSeconds: Long) : String {
+        val epochLocalInstant = Instant.ofEpochSecond(epochSeconds).atZone(ZonedDateTime.now().zone)
+
+        return (String.format("%04d%02d%02d%02d%02d%02d",
+                        epochLocalInstant.year,
+                        epochLocalInstant.month,
+                        epochLocalInstant.dayOfMonth,
+                        epochLocalInstant.hour,
+                        epochLocalInstant.minute,
+                        epochLocalInstant.second,
+                    )
+                )
+    }
+     */
 }
 
+@Serializable
 class GamePlayer {
     var name = ""
-    val scoreList by mutableStateOf(mutableListOf<Int>())
+    var scoreList = mutableListOf<Int>()
 
     fun addScore(newScore: Int) {
         scoreList.add(newScore)
@@ -47,14 +81,14 @@ class GamePlayer {
         scoreList.removeAt(scoreIndex)
     }
 
-    var currentScore : Int = 0
-        get() {
-            var scoreTotal = 0
 
-            for (score in scoreList) {
-                scoreTotal += score
-            }
+    fun currentScore(): Int {
+        var scoreTotal = 0
 
-            return scoreTotal
+        for (score in scoreList) {
+            scoreTotal += score
         }
+
+        return scoreTotal
+    }
 }
