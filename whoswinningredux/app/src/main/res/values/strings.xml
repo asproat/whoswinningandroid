@@ -4,6 +4,7 @@
     <!-- Winner mark (*) and name, allows for RTL languages -->
     <string name="playerNameFormat">%1$s%2$s</string>
     <string name="confirm_remove_score">Are you sure you want to remove this score?</string>
+    <string name="confirm_remove_player">Are you sure you want to remove this player?</string>
     <string name="yes">Yes</string>
     <string name="no">No</string>
     <string name="confirm_end">Are you sure you want to end the active game?</string>

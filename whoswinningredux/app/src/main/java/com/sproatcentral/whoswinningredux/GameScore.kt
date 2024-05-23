@@ -22,6 +22,10 @@ class GameScores : RealmObject() {
 
     var players = mutableListOf<GamePlayer>()
 
+    fun removePlayer(userIndex: Int) {
+        players.removeAt(userIndex)
+    }
+
     fun winningIndex(): List<Int> {
             var winners = mutableListOf<Int>()
             var winningScore = 0
@@ -80,7 +84,6 @@ class GamePlayer {
     fun removeScore(scoreIndex: Int) {
         scoreList.removeAt(scoreIndex)
     }
-
 
     fun currentScore(): Int {
         var scoreTotal = 0
