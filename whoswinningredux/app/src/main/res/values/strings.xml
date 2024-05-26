@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">Who\'s Winning</string>
-    <string name="name_hint">Name</string>
+    <string name="name_hint">Player</string>
     <!-- Winner mark (*) and name, allows for RTL languages -->
     <string name="playerNameFormat">%1$s%2$s</string>
     <string name="confirm_remove_score">Are you sure you want to remove this score?</string>
@@ -15,4 +15,6 @@
     <string name="name_exists">Duplicate name.</string>
     <string name="save_game">Save the results of this game?</string>
     <string name="share_game">Share to social media?</string>
+    <string name="choose_first">Choose First Player</string>
+    <string name="no_name">You must enter a name for the game to save it.</string>
 </resources>

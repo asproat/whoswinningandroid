@@ -4,7 +4,6 @@ import android.os.Build
 import android.os.Bundle
 import android.window.OnBackInvokedDispatcher
 import androidx.activity.OnBackPressedCallback
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,7 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
 
-class SettingsActivity: FragmentActivity() {
+class HistoryActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -42,20 +41,18 @@ class SettingsActivity: FragmentActivity() {
         }
 
         setContent {
-            Settings(this)
+            History(this)
         }
-
     }
-
 }
 
 @Composable
-fun Settings(activity: SettingsActivity) {
-
-    Column(verticalArrangement = Arrangement.Top, horizontalAlignment = Alignment.Start,
+fun History(activity: HistoryActivity) {
+    Column(
+        verticalArrangement = Arrangement.Top, horizontalAlignment = Alignment.Start,
         modifier = Modifier.fillMaxSize(1.0f)
-        ) {
-        Text("Settings")
+    ) {
+        Text("History")
         Button(onClick = {
             activity.finish()
         }) {

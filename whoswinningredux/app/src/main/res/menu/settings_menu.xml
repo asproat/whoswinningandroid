@@ -5,4 +5,10 @@
         android:showAsAction="always"
         android:iconTint="@android:color/background_light"
         android:title="" />
+    <item android:icon="@drawable/history"
+        android:id="@+id/history"
+        android:showAsAction="always"
+        android:iconTint="@android:color/background_light"
+        android:title="" />
+
 </menu>

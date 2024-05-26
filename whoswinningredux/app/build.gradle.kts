@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.jetbrains.kotlin.serialization)
     alias(libs.plugins.android.ksp)
+    alias(libs.plugins.androidx.room)
 }
 
 
@@ -50,6 +51,7 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    room { schemaDirectory("$projectDir/schemas") }
 }
 
 dependencies {

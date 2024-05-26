@@ -1,5 +1,5 @@
 [versions]
-agp = "8.4.0"
+agp = "8.4.1"
 kotlin = "1.9.23"
 coreKtx = "1.13.1"
 junit = "4.13.2"
@@ -14,6 +14,7 @@ realmGradlePlugin = "10.18.0"
 fragmentKtx = "1.7.0"
 roomRuntime = "2.6.1"
 roomCompile = "2.6.1"
+roomPlugin = "2.6.1"
 ksp = "1.9.23-1.0.20"
 
 
@@ -52,3 +53,4 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 jetbrains-kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 android-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+androidx-room = { id = "androidx.room", version.ref = "roomPlugin"}
