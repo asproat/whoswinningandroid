@@ -34,12 +34,16 @@ abstract class AppDatabase : RoomDatabase() {
 
 @Dao
 interface GameScoresDao {
-    @Query("SELECT * FROM GameScores")
+    @Query("SELECT * FROM GameScores ORDER BY gameDate DESC")
     fun getAll(): List<GameScores>
 
     @Transaction
     @Query("SELECT * FROM GameScores")
     fun getWithPlayers(): List<GameScoreWithPlayers>
+
+    @Transaction
+    @Query("SELECT * FROM GameScores")
+    fun getWithPlayersAndScores(): List<GameScoreWithPlayersAndScores>
 
     @Transaction
     @Query("SELECT * FROM GamePlayer")
@@ -191,6 +195,14 @@ class GameScoreWithPlayers {
 
     @Relation(parentColumn = "gameDate", entityColumn = "gameDate", entity = GamePlayer::class)
     var players: List<GamePlayer>? = null
+}
+
+class GameScoreWithPlayersAndScores {
+    @Embedded
+    var gameScores: GameScores? = null
+
+    @Relation(parentColumn = "gameDate", entityColumn = "gameDate", entity = GamePlayer::class)
+    var players: List<GamePlayerWithScores>? = null
 }
 
 @Serializable

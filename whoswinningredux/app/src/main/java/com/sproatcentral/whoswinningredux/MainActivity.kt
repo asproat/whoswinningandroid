@@ -1,5 +1,6 @@
 package com.sproatcentral.whoswinningredux
 
+import android.app.Activity
 import android.content.Intent
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -13,6 +14,7 @@ import android.view.MenuItem
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -47,6 +49,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalMinimumInteractiveComponentEnforcement
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -55,6 +59,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,13 +67,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.key.onKeyEvent
@@ -98,6 +105,8 @@ import kotlinx.serialization.json.Json
 class MainActivity : ComponentActivity() {
     lateinit var realm: Realm
 
+    var fromHistory = false
+
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.settings_menu, menu)
         return true
@@ -110,14 +119,44 @@ class MainActivity : ComponentActivity() {
             this.startActivity(intent)
             return true
         } else if (item.itemId == R.id.history) {
-            val intent = Intent(this, SettingsActivity::class.java)
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            this.startActivity(intent)
+            val intent = Intent(this, HistoryActivity::class.java)
+            //intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            resultLauncher.launch(intent)
             return true
         } else {
             return super.onMenuItemSelected(featureId, item)
         }
     }
+
+    var resultLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK &&
+                result.data != null &&
+                result.data!!.hasExtra("gameScore")
+            ) {
+
+                val data = result.data!!
+                fromHistory = true
+                setContent {
+                    WhoswinningreduxTheme {
+                        CompositionLocalProvider(
+                            LocalTextStyle provides LocalTextStyle.current.merge(
+                                TextStyle(fontSize = 25.sp)
+                            )
+                        )
+                        {
+                            Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                                ScoreList(
+                                    innerPadding = PaddingValues(0.dp),
+                                    Json.decodeFromString<GameScores>(data.getStringExtra("gameScore")!!)
+                                )
+                            }
+                        }
+                    }
+                }
+                //doSomeOperations()
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -187,12 +226,16 @@ class MainActivity : ComponentActivity() {
             mutableStateOf(ImageBitmap(500, 300))
         }
 
+        SideEffect {
+            Log.i("MainActivity", "currentGame Date: ${currentGame.value.gameDate}")
+        }
+
         fun updateImage() {
             gameSaveImage.value = ImageBitmap(500, 800)
             val canvas = Canvas(gameSaveImage.value.asAndroidBitmap())
             canvas.drawColor(Color.Gray.toArgb())
             val textPaint = Paint()
-            textPaint.color = Color.Black.toArgb()
+            textPaint.color =  // Color.Black.toArgb()
             textPaint.textSize = 180f
             canvas.drawText(saveGameName.value, 100f, 100f, textPaint)
         }
@@ -222,52 +265,63 @@ class MainActivity : ComponentActivity() {
             listExpanded.value = false
         }
 
-        fun showNextPlayer(i : Int = 0, lastPlayer: Int = -1) {
+        fun showNextPlayer(i: Int = 0, lastPlayer: Int = -1) {
             var current = i
             val playerCount = currentGame.value.players.count()
             val last = if (lastPlayer != -1) lastPlayer else (
-                    (playerCount * 3 .. playerCount * 6).random()
-            )
+                    (playerCount * 3..playerCount * 6).random()
+                    )
             Handler(Looper.getMainLooper()).postDelayed({
                 current++
                 activePlayerIndex.intValue =
                     current % currentGame.value.players.count()
-                if(current < last) {
+                if (current < last) {
                     showNextPlayer(current, last)
                 }
             }, 100L)
         }
 
-        fun clearCurrentGame() {
-            currentGame.value = GameScores()
+        fun resetCurrentGame(clearGame: Boolean = true) {
             activePlayerIndex.intValue = -1
             playersPlusAddCount.intValue = 0
             currentScoreList.value = listOf()
             listExpanded.value = false
-            // not using apply in background because it may not finish before app is closed
-            this.getSharedPreferences("whosWinning", MODE_PRIVATE).edit().remove("currentGame").commit()
+            if(clearGame) {
+                // not using apply in background because it may not finish before app is closed
+                this.getSharedPreferences("whosWinning", MODE_PRIVATE).edit().remove("currentGame")
+                    .commit()
+                currentGame.value = GameScores()
+            } else {
+                currentGame.value =
+                    Json.decodeFromString<GameScores>(
+                        this.getSharedPreferences("whosWinning", MODE_PRIVATE).getString("currentGame", "") ?: ""
+                    )
+            }
         }
 
         fun saveGameNow() = GlobalScope.async {
             currentGame.value.gameName = saveGameName.value
-            Log.d("Room", "saving ${currentGame.value.gameName} with ${currentGame.value.players.size} players")
-                val dao = currentGame.value.prepRoom(this@MainActivity)
-                    .gameScoresDao()
-                dao.insertAll(currentGame.value)
-                for(player in currentGame.value.players) {
-                    Log.d("Room", "saving ${player.name} with ${player.scoreList.size} scores")
-                    val playerId = dao.insertGamePlayer(player)
-                    for(score in player.scoreList) {
-                        Log.d("Room", "saving score with value ${score.score}")
-                        score.gamePlayerId = playerId.toInt()
-                        dao.insertGamePlayerScore(score)
-                    }
+            Log.d(
+                "Room",
+                "saving ${currentGame.value.gameName} with ${currentGame.value.players.size} players"
+            )
+            val dao = currentGame.value.prepRoom(this@MainActivity)
+                .gameScoresDao()
+            dao.insertAll(currentGame.value)
+            for (player in currentGame.value.players) {
+                Log.d("Room", "saving ${player.name} with ${player.scoreList.size} scores")
+                val playerId = dao.insertGamePlayer(player)
+                for (score in player.scoreList) {
+                    Log.d("Room", "saving score with value ${score.score}")
+                    score.gamePlayerId = playerId.toInt()
+                    dao.insertGamePlayerScore(score)
                 }
-
-                // clear current game
-                clearCurrentGame()
-                showConfirmClose.value = false
             }
+
+            // clear current game
+            resetCurrentGame()
+            showConfirmClose.value = false
+        }
 
         if (showConfirmClose.value) {
             Dialog(
@@ -304,7 +358,7 @@ class MainActivity : ComponentActivity() {
                                     Spacer(Modifier.weight(0.1f))
                                     Button(content = { Text(stringResource(R.string.no)) },
                                         onClick = {
-                                            clearCurrentGame()
+                                            resetCurrentGame()
                                             showConfirmClose.value = false
                                         }
                                     )
@@ -319,12 +373,20 @@ class MainActivity : ComponentActivity() {
                                         updateImage()
                                     },
                                     trailingIcon = {
-                                        Icon(Icons.Default.Clear,
-                                            contentDescription = "",
-                                            modifier = Modifier.clickable {
+                                        CompositionLocalProvider(
+                                            LocalMinimumInteractiveComponentEnforcement provides false,
+                                        ) {
+                                            IconButton(onClick = {
                                                 saveGameName.value = ""
-                                            })
-                                    },
+                                            }) {
+                                                Icon(
+                                                    Icons.Default.Clear,
+                                                    contentDescription = ""
+                                                )
+
+                                            }
+                                        }
+                                    }
                                 )
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -344,43 +406,40 @@ class MainActivity : ComponentActivity() {
                                     )
 
                                 }
-                                Row(
-                                    horizontalArrangement = Arrangement.SpaceAround,
-                                    modifier = Modifier.fillMaxWidth(1.0f)
+                                Button(
+                                    onClick = {
+                                        if (saveGameName.value.isNotEmpty()) {
+                                            // save to database
+                                            saveGameNow()
+                                        } else {
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                R.string.no_name,
+                                                Toast.LENGTH_SHORT
+                                            )
+                                        }
+
+                                    },
+                                    content = {
+                                        Icon(
+                                            imageVector = Icons.Default.Done,
+                                            contentDescription = ""
+                                        )
+                                    }
                                 )
-                                {
-                                    Button(
-                                        onClick = {
-                                            if (saveGameName.value.isNotEmpty()) {
-                                                // save to database
-                                                saveGameNow()
-                                            } else {
-                                                Toast.makeText(this@MainActivity, R.string.no_name, Toast.LENGTH_SHORT)
-                                            }
-
-                                        },
-                                        content = {
-                                            Icon(
-                                                imageVector = Icons.Default.Done,
-                                                contentDescription = ""
-                                            )
-                                        }
-                                    )
-                                    Button(
-                                        onClick = {
-                                            showSaveGame.value = false
-                                            clearCurrentGame()
-                                            showConfirmClose.value = false
-                                        },
-                                        content = {
-                                            Icon(
-                                                imageVector = Icons.Default.Clear,
-                                                contentDescription = ""
-                                            )
-                                        }
-                                    )
-                                }
-
+                                Button(
+                                    onClick = {
+                                        showSaveGame.value = false
+                                        resetCurrentGame()
+                                        showConfirmClose.value = false
+                                    },
+                                    content = {
+                                        Icon(
+                                            imageVector = Icons.Default.Clear,
+                                            contentDescription = ""
+                                        )
+                                    }
+                                )
                             }
                         } else {
                             Text(stringResource(R.string.confirm_end))
@@ -447,7 +506,6 @@ class MainActivity : ComponentActivity() {
             )
         }
 
-
         if (showRemoveScore.value) {
             AlertDialog(
                 onDismissRequest = {
@@ -490,24 +548,23 @@ class MainActivity : ComponentActivity() {
             modifier = Modifier
                 .fillMaxWidth(1.0f)
                 .padding(all = 5.dp)
-            //.border(2.dp, Color.Red)
-        ) {
+        )
+        {
             items(playersPlusAddCount.intValue) { playerIndex ->
                 if (playerIndex < currentGame.value.players.size) {
                     Column(
                         modifier = Modifier
-                            .border(1.dp, Color.Black)
                             .fillMaxHeight(0.9f)
                             .fillParentMaxWidth(
                                 animateFloatAsState(
                                     targetValue =
                                     if (activePlayerIndex.intValue == playerIndex)
-                                        0.50f
+                                        0.45f
                                     else
                                         0.15f,
                                     animationSpec = tween(durationMillis = 500)
                                 ).value
-                            )//.border(2.dp, Color.Blue)
+                            )
                             .padding(7.dp)
                             .onGloballyPositioned { coordinates ->
                                 if (columnHeight.value == -1.dp) {
@@ -516,24 +573,65 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                             .drawBehind {
+                                // top
                                 drawLine(
-                                    Color(153, 153, 153, 102),
-                                    Offset(0f, this.size.height + 22f),
-                                    Offset(
-                                        this.size.width + 25f,
-                                        this.size.height + 22f
-                                    ),
-                                    10f
+                                    Color.Black,
+                                    Offset(-15f, -17f), Offset(size.width + 17f, -17f),
+                                    3.dp.toPx()
                                 )
-                                if (playerIndex == activePlayerIndex.intValue) {
+                                // left
+                                drawLine(
+                                    Color.Black,
+                                    Offset(-15f, -17f), Offset(-15f, size.height + 17f),
+                                    3.dp.toPx()
+                                )
+                                // bottom
+                                drawLine(
+                                    Color.Black,
+                                    Offset(-15f, size.height + 17f),
+                                    Offset(size.width + 17f, size.height + 17f),
+                                    3.dp.toPx()
+                                )
+                                if (activePlayerIndex.intValue == playerIndex) {
+                                    /*
+                                    // right
                                     drawLine(
-                                        Color(153, 153, 153, 102),
-                                        Offset(this.size.width + 33f, 5f),
-                                        Offset(
-                                            this.size.width + 33f,
-                                            this.size.height + 15f
+                                        Color.Black,
+                                        Offset(size.width + 15f, -15f),
+                                        Offset(size.width + 15f, size.height + 15f),
+                                        3.dp.toPx()
+                                    )
+                                    */
+                                    // right shadow
+                                    drawRect(
+                                        brush =
+                                        Brush.horizontalGradient(
+                                            listOf(Color(0x00FFFFFF), Color(0x99333333)),
+                                            0f, 30f, TileMode.Mirror
                                         ),
-                                        10f
+                                        Offset(this.size.width + 13f, 7f),
+                                        Size(30.0f, this.size.height + 10f)
+                                    )
+                                    // bottom shadow
+                                    drawRect(
+                                        brush =
+                                        Brush.verticalGradient(
+                                            listOf(Color(0x99333333), Color(0x00FFFFFF)),
+                                            10f, 40f, TileMode.Mirror
+                                        ),
+                                        Offset(5f, this.size.height + 12f),
+                                        Size(this.size.width + 7f, 30.0f)
+                                    )
+                                    // corner gradient
+                                    drawRect(
+                                        brush =
+                                        Brush.linearGradient(
+                                            listOf(Color(0x99FFFFFF), Color(0x99666666)),
+                                            Offset(-10f, -10f), Offset(20f, 20f),
+                                            TileMode.Mirror
+                                        ),
+                                        Offset(this.size.width + 12f, this.size.height + 16f),
+                                        Size(23f, 23f)
                                     )
                                 }
                             }
@@ -605,16 +703,20 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                                 .fillMaxWidth(1.0f)
-                            //.border(2.dp, Color.Yellow)
                         )
-                        if (activePlayerIndex.intValue == playerIndex) {
+                        if (activePlayerIndex.intValue == playerIndex &&
+                            !this@MainActivity.fromHistory
+                        ) {
                             val newScoreString =
                                 remember { mutableStateOf(TextFieldValue("0")) }
                             val newScore = remember { mutableIntStateOf(0) }
-
                             TextField(newScoreString.value,
                                 textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.End),
                                 onValueChange = {
+                                    newScoreString.value = it
+                                    newScore.intValue = it.text.toInt()
+                                },
+                                /*
                                     if (it.text.toIntOrNull() != null) {
                                         newScore.intValue = it.text.toInt()
                                         newScoreString.value =
@@ -623,26 +725,25 @@ class MainActivity : ComponentActivity() {
                                             )
                                     }
                                 },
+                                 */
                                 keyboardOptions = KeyboardOptions.Default.copy(
                                     keyboardType = KeyboardType.Number
                                 ),
                                 leadingIcon = {
-                                    Icon(Icons.Default.Add, contentDescription = "",
-                                        modifier = Modifier
-                                            .clickable {
-                                                newScore.intValue += 1
-                                                newScoreString.value =
-                                                    newScoreString.value.copy(
-                                                        newScore.intValue.toString(),
-                                                        selection = TextRange(
-                                                            0,
-                                                            newScore.intValue.toString().length
-                                                        )
-                                                    )
-                                            }
-                                            .scale(0.5f)
-                                            .width(IntrinsicSize.Min)
-                                    )
+                                    IconButton(onClick = {
+                                        newScore.intValue += 1
+                                        newScoreString.value =
+                                            newScoreString.value.copy(
+                                                newScore.intValue.toString(),
+                                                selection = TextRange(
+                                                    0,
+                                                    newScore.intValue.toString().length
+                                                )
+                                            )
+                                    }
+                                    ) {
+                                        Icon(Icons.Default.Add, "")
+                                    }
                                 },
                                 trailingIcon = {
                                     Icon(painterResource(R.drawable.minus),
@@ -659,12 +760,10 @@ class MainActivity : ComponentActivity() {
                                                         )
                                                     )
                                             }
-                                            .scale(0.5f)
-                                            .width(IntrinsicSize.Min)
                                     )
                                 },
                                 modifier = Modifier
-                                    .width(180.dp)
+                                    .fillMaxWidth(1.0f)
                                     .onKeyEvent {
                                         if (it.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_ENTER) {
                                             addScore(
@@ -676,8 +775,9 @@ class MainActivity : ComponentActivity() {
                                                 newScoreString.value.copy(
                                                     newScore.intValue.toString()
                                                 )
+                                            false
                                         }
-                                        false
+                                        true
                                     }
                                     .focusRequester(scoreFocusRequester)
                                     .onFocusChanged { focusState ->
@@ -735,32 +835,79 @@ class MainActivity : ComponentActivity() {
                 val repeatWarning = remember { mutableStateOf(false) }
                 Column(
                     modifier = Modifier
-                        .border(3.dp, Color.Black)
                         .fillMaxHeight(0.9f)
                         .fillParentMaxWidth(
                             animateFloatAsState(
                                 targetValue =
                                 if (activePlayerIndex.intValue == -1)
-                                    0.50f
+                                    0.40f
                                 else
-                                    0.10f,
+                                    0.15f,
                                 animationSpec = tween(durationMillis = 500)
                             ).value
                         )
                         .padding(all = 5.dp)
                         .drawBehind {
+                            // top
                             drawLine(
-                                Color(153, 153, 153, 102),
-                                Offset(0f, this.size.height + 19f),
-                                Offset(this.size.width + 22f, this.size.height + 19f),
-                                10f
+                                Color.Black,
+                                Offset(-15f, -15f), Offset(size.width + 17f, -15f),
+                                3.dp.toPx()
                             )
+                            // right
                             drawLine(
-                                Color(153, 153, 153, 102),
-                                Offset(this.size.width + 18f, 5f),
-                                Offset(this.size.width + 18f, this.size.height + 14f),
-                                10f
+                                Color.Black,
+                                Offset(size.width + 15f, -15f),
+                                Offset(size.width + 15f, size.height + 15f),
+                                3.dp.toPx()
                             )
+                            // bottom
+                            drawLine(
+                                Color.Black,
+                                Offset(-15f, size.height + 15f),
+                                Offset(size.width + 17f, size.height + 15f),
+                                3.dp.toPx()
+                            )
+                            // left
+                            drawLine(
+                                Color.Black,
+                                Offset(-15f, -15f), Offset(-15f, size.height + 15f),
+                                3.dp.toPx()
+                            )
+
+                            if (activePlayerIndex.intValue == -1) {
+                                // right shadow
+                                drawRect(
+                                    brush =
+                                    Brush.horizontalGradient(
+                                        listOf(Color(0x00FFFFFF), Color(0x99333333)),
+                                        0f, 30f, TileMode.Mirror
+                                    ),
+                                    Offset(this.size.width + 13f, 7f),
+                                    Size(30.0f, this.size.height + 10f)
+                                )
+                                // bottom shadow
+                                drawRect(
+                                    brush =
+                                    Brush.verticalGradient(
+                                        listOf(Color(0x99333333), Color(0x00FFFFFF)),
+                                        10f, 40f, TileMode.Mirror
+                                    ),
+                                    Offset(5f, this.size.height + 12f),
+                                    Size(this.size.width + 7f, 30.0f)
+                                )
+                                // corner gradient
+                                drawRect(
+                                    brush =
+                                    Brush.linearGradient(
+                                        listOf(Color(0x99FFFFFF), Color(0x99666666)),
+                                        Offset(-10f, -10f), Offset(20f, 20f),
+                                        TileMode.Mirror
+                                    ),
+                                    Offset(this.size.width + 12f, this.size.height + 16f),
+                                    Size(23f, 23f)
+                                )
+                            }
                         },
                     content = {
                         if (activePlayerIndex.intValue != -1) {
@@ -770,119 +917,131 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.clickable {
                                     activePlayerIndex.intValue = -1
                                     Handler(Looper.getMainLooper()).postDelayed({
-                                        nameFocusRequester.requestFocus()
+                                        if (!this@MainActivity.fromHistory) {
+                                            nameFocusRequester.requestFocus()
+                                        }
                                     }, 100L)
                                 }
                             )
                         } else {
-                            Text(
-                                text = stringResource(R.string.winner_label),
-                                modifier = Modifier.padding(5.dp)
-                            )
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = stringResource(R.string.low_score),
-                                    style = TextStyle(fontSize = 14.sp),
-                                    modifier = Modifier.padding(5.dp)
-                                )
-                                Switch(checked = winnerHighScore.value,
-                                    onCheckedChange = {
-                                        winnerHighScore.value = it
-                                        currentGame.value.highScoreWinner =
-                                            winnerHighScore.value
-                                        currentGame.value.saveToPrefs(this@MainActivity)
-                                        // reset winner
-                                        if (currentGame.value.players.size > 0) {
-                                            activePlayerIndex.intValue = 0
-                                            Handler(Looper.getMainLooper()).postDelayed(
-                                                {
-                                                    activePlayerIndex.intValue = -1
-                                                },
-                                                100L
-                                            )
-                                        }
-                                    }
-                                )
-                                Text(
-                                    text = stringResource(R.string.high_score),
-                                    style = TextStyle(fontSize = 14.sp),
-                                    modifier = Modifier.padding(5.dp)
-                                )
-                            }
-                            BasicTextField(
-                                newName.value,
-                                textStyle = LocalTextStyle.current.merge(
-                                    TextStyle(fontSize = 25.sp)
-                                ),
-                                keyboardOptions = KeyboardOptions.Default.copy(
-                                    capitalization = KeyboardCapitalization.Words
-                                ),
-                                onValueChange = { currentName: String ->
-                                    newName.value = currentName
-                                    repeatWarning.value =
-                                        currentGame.value.players.firstOrNull {
-                                            it.name.startsWith(currentName)
-                                        } != null
-                                },
-                                modifier = Modifier
-                                    .padding(5.dp)
-                                    .width(IntrinsicSize.Min)
-                                    .onKeyEvent {
-                                        if (it.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_ENTER) {
-                                            addPlayer(newName.value)
-                                        }
-                                        false
-                                    }
-                                    .focusRequester(nameFocusRequester)
-                            )
+                            if (!this@MainActivity.fromHistory) {
 
-                            {
-                                TextFieldDefaults.DecorationBox(
-                                    value = newName.value,
-                                    enabled = true,
-                                    placeholder = {
-                                        Text(
-                                            stringResource(R.string.name_hint),
-                                            style = LocalTextStyle.current.merge(
-                                                TextStyle(fontSize = 25.sp)
-                                            )
-                                        )
-                                    },
-                                    innerTextField = it,
-                                    singleLine = true,
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    visualTransformation = VisualTransformation.None,
-                                    trailingIcon = {
-                                        Icon(Icons.Default.Clear,
-                                            contentDescription = "",
-                                            modifier = Modifier.clickable {
-                                                newName.value = ""
-                                            })
-                                    }
-                                )
-                            }
-                            if (repeatWarning.value) {
                                 Text(
-                                    stringResource(R.string.name_exists),
-                                    modifier = Modifier.width(IntrinsicSize.Min)
+                                    text = stringResource(R.string.winner_label),
+                                    modifier = Modifier.padding(5.dp)
                                 )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = stringResource(R.string.low_score),
+                                        style = TextStyle(fontSize = 14.sp),
+                                        modifier = Modifier.padding(5.dp)
+                                    )
+                                    Switch(checked = winnerHighScore.value,
+                                        onCheckedChange = {
+                                            winnerHighScore.value = it
+                                            currentGame.value.highScoreWinner =
+                                                winnerHighScore.value
+                                            currentGame.value.saveToPrefs(this@MainActivity)
+                                            // reset winner
+                                            if (currentGame.value.players.size > 0) {
+                                                activePlayerIndex.intValue = 0
+                                                Handler(Looper.getMainLooper()).postDelayed(
+                                                    {
+                                                        activePlayerIndex.intValue = -1
+                                                    },
+                                                    100L
+                                                )
+                                            }
+                                        }
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.high_score),
+                                        style = TextStyle(fontSize = 14.sp),
+                                        modifier = Modifier.padding(5.dp)
+                                    )
+                                }
+                                BasicTextField(
+                                    newName.value,
+                                    textStyle = LocalTextStyle.current.merge(
+                                        TextStyle(fontSize = 25.sp)
+                                    ),
+                                    keyboardOptions = KeyboardOptions.Default.copy(
+                                        capitalization = KeyboardCapitalization.Words
+                                    ),
+                                    onValueChange = { currentName: String ->
+                                        newName.value = currentName
+                                        repeatWarning.value =
+                                            currentGame.value.players.firstOrNull {
+                                                it.name.startsWith(currentName)
+                                            } != null
+                                    },
+                                    modifier = Modifier
+                                        .width(IntrinsicSize.Min)
+                                        .onKeyEvent {
+                                            if (it.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_ENTER) {
+                                                addPlayer(newName.value)
+                                            }
+                                            false
+                                        }
+                                        .focusRequester(nameFocusRequester)
+                                )
+
+                                {
+                                    TextFieldDefaults.DecorationBox(
+                                        contentPadding = PaddingValues(3.dp),
+                                        value = newName.value,
+                                        enabled = true,
+                                        placeholder = {
+                                            Text(
+                                                stringResource(R.string.name_hint),
+                                                style = LocalTextStyle.current.merge(
+                                                    TextStyle(fontSize = 25.sp)
+                                                )
+                                            )
+                                        },
+                                        innerTextField = it,
+                                        singleLine = true,
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        visualTransformation = VisualTransformation.None,
+                                        trailingIcon = {
+                                            IconButton(onClick = {
+                                                newName.value = ""
+                                            }) {
+                                                Icon(
+                                                    Icons.Default.Clear,
+                                                    contentDescription = ""
+                                                )
+                                            }
+                                        }
+                                    )
+                                }
+                                if (repeatWarning.value) {
+                                    Text(
+                                        stringResource(R.string.name_exists),
+                                        modifier = Modifier.width(IntrinsicSize.Min)
+                                    )
+                                }
+                                if (newName.value.isNotEmpty()) {
+                                    Button(
+                                        {
+                                            addPlayer(newName.value)
+                                        },
+                                        content = {
+                                            Icon(
+                                                imageVector = Icons.Default.Done,
+                                                contentDescription = ""
+                                            )
+                                        },
+                                        modifier = Modifier.align(alignment = Alignment.CenterHorizontally)
+                                    )
+                                }
                             }
-                            if (newName.value.isNotEmpty()) {
-                                Button(
-                                    {
-                                        addPlayer(newName.value)
-                                    },
-                                    content = {
-                                        Icon(
-                                            imageVector = Icons.Default.Done,
-                                            contentDescription = ""
-                                        )
-                                    },
-                                    modifier = Modifier.align(alignment = Alignment.CenterHorizontally)
-                                )
-                            } else {
-                                Button(
-                                    onClick = {
+                            Button(
+                                onClick = {
+                                    if (this@MainActivity.fromHistory) {
+                                        resetCurrentGame(false)
+                                    } else {
+
                                         if (currentGame.value.players.firstOrNull() != null) {
                                             showConfirmClose.value = true
                                             showSaveGame.value = false
@@ -891,13 +1050,15 @@ class MainActivity : ComponentActivity() {
                                             shareGame.value = false
                                             updateImage()
                                         }
-                                    },
-                                    content = {
-                                        Image(painterResource(R.drawable.finish), "")
-                                    },
-                                    modifier = Modifier.align(alignment = Alignment.CenterHorizontally)
-                                )
+                                    }
+                                },
+                                content = {
+                                    Image(painterResource(R.drawable.finish), "")
+                                },
+                                modifier = Modifier.align(alignment = Alignment.CenterHorizontally)
+                            )
 
+                            if (!this@MainActivity.fromHistory) {
                                 Button(
                                     onClick = {
                                         if (currentGame.value.players.firstOrNull() != null) {
@@ -917,6 +1078,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
 
     @Preview(showBackground = true)
     @Composable
