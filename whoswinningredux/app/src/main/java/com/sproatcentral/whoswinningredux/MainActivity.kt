@@ -235,7 +235,7 @@ class MainActivity : ComponentActivity() {
             val canvas = Canvas(gameSaveImage.value.asAndroidBitmap())
             canvas.drawColor(Color.Gray.toArgb())
             val textPaint = Paint()
-            textPaint.color =  // Color.Black.toArgb()
+            textPaint.color = Color.Black.toArgb()
             textPaint.textSize = 180f
             canvas.drawText(saveGameName.value, 100f, 100f, textPaint)
         }
