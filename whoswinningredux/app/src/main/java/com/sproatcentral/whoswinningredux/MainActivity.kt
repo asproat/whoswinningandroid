@@ -101,6 +101,7 @@ import io.realm.Realm
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.async
 import kotlinx.serialization.json.Json
+import org.intellij.lang.annotations.JdkConstants.HorizontalAlignment
 
 class MainActivity : ComponentActivity() {
     lateinit var realm: Realm
@@ -634,7 +635,8 @@ class MainActivity : ComponentActivity() {
                                         Size(23f, 23f)
                                     )
                                 }
-                            }
+                            },
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         // show player
                         Text(
@@ -793,38 +795,36 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                             )
-                            Row(
-                                horizontalArrangement = Arrangement.SpaceAround,
-                                modifier = Modifier.fillMaxWidth(1.0f)
-                            ) {
-                                Button(
-                                    onClick = {
-                                        addScore(playerIndex, newScore.intValue)
-                                        newScore.intValue = 0
-                                        newScoreString.value = newScoreString.value.copy(
-                                            newScore.intValue.toString()
-                                        )
-                                    },
-                                    content = {
-                                        Icon(
-                                            imageVector = Icons.Default.Done,
-                                            contentDescription = ""
-                                        )
-                                    }
-                                )
-                                Button(
-                                    onClick = {
-                                        removePlayer.intValue = playerIndex
-                                        showRemoveUser.value = true
-                                    },
-                                    content = {
-                                        Icon(
-                                            imageVector = Icons.Default.Clear,
-                                            contentDescription = ""
-                                        )
-                                    }
-                                )
-                            }
+                            Button(
+                                onClick = {
+                                    addScore(playerIndex, newScore.intValue)
+                                    newScore.intValue = 0
+                                    newScoreString.value = newScoreString.value.copy(
+                                        newScore.intValue.toString()
+                                    )
+                                },
+                                content = {
+                                    Icon(
+                                        imageVector = Icons.Default.Done,
+                                        contentDescription = ""
+                                    )
+                                }
+                            )
+
+                            Spacer(Modifier.weight(1.0f))
+
+                            Button(
+                                onClick = {
+                                    removePlayer.intValue = playerIndex
+                                    showRemoveUser.value = true
+                                },
+                                content = {
+                                    Icon(
+                                        imageVector = Icons.Default.Clear,
+                                        contentDescription = ""
+                                    )
+                                }
+                            )
                         }
                     }
                 }
@@ -1036,6 +1036,26 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                             }
+
+                            if (!this@MainActivity.fromHistory) {
+                                Button(
+                                    onClick = {
+                                        if (currentGame.value.players.firstOrNull() != null) {
+                                            // pick random number between 3 times and 6 times number of players
+                                            activePlayerIndex.intValue = 0
+                                            showNextPlayer()
+                                        }
+                                    },
+                                    content = {
+                                        Text(stringResource(R.string.choose_first))
+                                    },
+                                    modifier = Modifier.align(alignment = Alignment.CenterHorizontally)
+                                        .padding(10.dp)
+                                )
+                            }
+
+                            Spacer(Modifier.weight(1.0F))
+
                             Button(
                                 onClick = {
                                     if (this@MainActivity.fromHistory) {
@@ -1058,21 +1078,6 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.align(alignment = Alignment.CenterHorizontally)
                             )
 
-                            if (!this@MainActivity.fromHistory) {
-                                Button(
-                                    onClick = {
-                                        if (currentGame.value.players.firstOrNull() != null) {
-                                            // pick random number between 3 times and 6 times number of players
-                                            activePlayerIndex.intValue = 0
-                                            showNextPlayer()
-                                        }
-                                    },
-                                    content = {
-                                        Text(stringResource(R.string.choose_first))
-                                    },
-                                    modifier = Modifier.align(alignment = Alignment.CenterHorizontally)
-                                )
-                            }
                         }
                     })
             }
