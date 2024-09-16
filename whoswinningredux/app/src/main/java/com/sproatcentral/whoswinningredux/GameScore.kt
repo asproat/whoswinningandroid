@@ -88,7 +88,7 @@ class GameScores : RealmObject() {
 
     fun winningIndex(): List<Int> {
             val winners = mutableListOf<Int>()
-            var winningScore = 0
+            var winningScore = if (highScoreWinner) 0 else Int.MIN_VALUE
             val scoreAdjustment = if (highScoreWinner) 1 else -1
 
             for (playerIndex in 0..<players.size) {
