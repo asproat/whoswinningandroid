@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -45,6 +46,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -96,12 +98,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.sproatcentral.whoswinningredux.ui.theme.WhoswinningreduxTheme
 import io.realm.Realm
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.async
 import kotlinx.serialization.json.Json
-import org.intellij.lang.annotations.JdkConstants.HorizontalAlignment
 
 class MainActivity : ComponentActivity() {
     lateinit var realm: Realm
@@ -212,6 +214,8 @@ class MainActivity : ComponentActivity() {
         val saveGame = remember { mutableStateOf(false) }
         val shareGame = remember { mutableStateOf(false) }
 
+        val showStandings = remember { mutableStateOf(false) }
+
         val showRemoveUser = remember { mutableStateOf(false) }
         val showRemoveScore = remember { mutableStateOf(false) }
         val removePlayer = remember { mutableIntStateOf(-1) }
@@ -283,7 +287,7 @@ class MainActivity : ComponentActivity() {
         }
 
         fun resetCurrentGame(clearGame: Boolean = true) {
-            if(clearGame) {
+            if (clearGame) {
                 // not using apply in background because it may not finish before app is closed
                 this.getSharedPreferences("whosWinning", MODE_PRIVATE).edit().remove("currentGame")
                     .commit()
@@ -291,7 +295,8 @@ class MainActivity : ComponentActivity() {
             } else {
                 currentGame.value =
                     Json.decodeFromString<GameScores>(
-                        this.getSharedPreferences("whosWinning", MODE_PRIVATE).getString("currentGame", "") ?: ""
+                        this.getSharedPreferences("whosWinning", MODE_PRIVATE)
+                            .getString("currentGame", "") ?: ""
                     )
             }
             fromHistory = false
@@ -450,7 +455,9 @@ class MainActivity : ComponentActivity() {
                                 //Spacer(Modifier.weight(0.3f))
                                 Button(content = { Text(stringResource(R.string.yes)) },
                                     onClick = {
-                                        showSaveGame.value = true
+                                        resetCurrentGame()
+                                        showConfirmClose.value = false
+                                        // showSaveGame.value = true
                                     }
                                 )
                                 Spacer(Modifier.weight(0.1f))
@@ -465,6 +472,23 @@ class MainActivity : ComponentActivity() {
                         } // else show close game
                     } // dialog column
                 } // dialog content
+            )
+        }
+
+        if(showStandings.value) {
+            BasicAlertDialog (
+                onDismissRequest = {
+                    showStandings.value = false
+                },
+                content = { Text(currentGame.value.standings(applicationContext)) },
+                modifier = Modifier
+                    .border(
+                        3.dp, Color.Black,
+                        shape = RoundedCornerShape(15.dp)
+                    )
+                    .clip(shape = RoundedCornerShape(15.dp))
+                    .background(Color.White)
+                    .padding(10.dp)
             )
         }
 
@@ -553,9 +577,18 @@ class MainActivity : ComponentActivity() {
         )
         {
             items(playersPlusAddCount.intValue) { playerIndex ->
-                if (playerIndex < currentGame.value.players.size) {
+                if (playerIndex >= 0 &&
+                    playerIndex < currentGame.value.players.size
+                ) {
                     Column(
                         modifier = Modifier
+                            .offset(
+                                0.dp,
+                                if (activePlayerIndex.intValue == playerIndex)
+                                    20.dp
+                                else
+                                    0.dp
+                            )
                             .fillMaxHeight(0.9f)
                             .fillParentMaxWidth(
                                 animateFloatAsState(
@@ -563,7 +596,7 @@ class MainActivity : ComponentActivity() {
                                     if (activePlayerIndex.intValue == playerIndex)
                                         0.45f
                                     else
-                                        0.15f,
+                                        0.20f,
                                     animationSpec = tween(durationMillis = 500)
                                 ).value
                             )
@@ -575,10 +608,55 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                             .drawBehind {
+                                if (activePlayerIndex.intValue == playerIndex) {
+                                    // right shadow
+                                    drawRect(
+                                        brush =
+                                        Brush.horizontalGradient(
+                                            listOf(Color(0x99333333), Color(0x00FFFFFF)),
+                                            size.width + 20f, size.width + 38f,
+                                            TileMode.Decal
+                                        ),
+                                        Offset(size.width + 4f, 0f),
+                                        Size(50.0f, this.size.height + 20f)
+                                    )
+                                }
+                                // bottom shadow
+                                drawRect(
+                                    brush =
+                                    Brush.verticalGradient(
+                                        listOf(Color(0x99333333), Color(0x00FFFFFF)),
+                                        this.size.height + 20f,
+                                        this.size.height + 45f,
+                                        TileMode.Decal
+                                    ),
+                                    Offset(
+                                        this.center.x - (this.size.width / 2f),
+                                        this.size.height + 20f),
+                                    Size(
+                                        this.size.width +
+                                         if (activePlayerIndex.intValue - 1 == playerIndex ||
+                                             (activePlayerIndex.intValue == -1 &&
+                                              playerIndex == currentGame.value.players.size - 1)
+                                             )
+                                                15f
+                                             else
+                                                33f,
+                                        25.0f
+                                    )
+                                )
+                                // right
+                                drawLine(
+                                    Color.Black,
+                                    Offset(size.width + 17f, -17f),
+                                    Offset(size.width + 17f, size.height + 15f),
+                                    3.dp.toPx()
+                                )
                                 // top
                                 drawLine(
                                     Color.Black,
-                                    Offset(-15f, -17f), Offset(size.width + 17f, -17f),
+                                    Offset(-15f, -17f),
+                                    Offset(size.width + 17f, -17f),
                                     3.dp.toPx()
                                 )
                                 // left
@@ -594,60 +672,7 @@ class MainActivity : ComponentActivity() {
                                     Offset(size.width + 17f, size.height + 17f),
                                     3.dp.toPx()
                                 )
-                                if (activePlayerIndex.intValue == playerIndex) {
-                                    /*
-                                    // right
-                                    drawLine(
-                                        Color.Black,
-                                        Offset(size.width + 15f, -15f),
-                                        Offset(size.width + 15f, size.height + 15f),
-                                        3.dp.toPx()
-                                    )
-                                    */
-                                    // right shadow
-                                    drawRect(
-                                        brush =
-                                        Brush.horizontalGradient(
-                                            listOf(Color(0x00FFFFFF), Color(0x99333333)),
-                                            0f, 30f, TileMode.Mirror
-                                        ),
-                                        Offset(this.size.width + 13f, 7f),
-                                        Size(30.0f, this.size.height + 10f)
-                                    )
-                                    // bottom shadow
-                                    drawRect(
-                                        brush =
-                                        Brush.verticalGradient(
-                                            listOf(Color(0x99333333), Color(0x00FFFFFF)),
-                                            10f, 40f, TileMode.Mirror
-                                        ),
-                                        Offset(5f, this.size.height + 12f),
-                                        Size(this.size.width + 7f, 30.0f)
-                                    )
-                                    // corner gradient
-                                    drawRect(
-                                        brush =
-                                        Brush.linearGradient(
-                                            listOf(Color(0x00FFFFFF), Color(0x99333333)),
-                                            Offset(-10f, -10f), Offset(20f, 20f),
-                                            TileMode.Mirror
-                                        ),
-                                        Offset(this.size.width + 12f, this.size.height + 16f),
-                                        Size(23f, 23f)
-                                    )
-                                } else {
-                                    // bottom shadow
-                                    drawRect(
-                                        brush =
-                                        Brush.verticalGradient(
-                                            listOf(Color(0x99333333), Color(0x00FFFFFF)),
-                                            10f, 40f, TileMode.Mirror
-                                        ),
-                                        Offset(5f, this.size.height + 12f),
-                                        Size(this.size.width + 33f, 30.0f)
-                                    )
 
-                                }
                             },
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
@@ -669,7 +694,7 @@ class MainActivity : ComponentActivity() {
                                 listExpanded.value = false
                                 currentScoreList.value =
                                     currentGame.value.players[activePlayerIndex.intValue].scoreList
-                                if(!fromHistory) {
+                                if (!fromHistory) {
                                     Handler(Looper.getMainLooper()).postDelayed({
                                         scoreFocusRequester.requestFocus()
                                     }, 100L)
@@ -731,7 +756,7 @@ class MainActivity : ComponentActivity() {
                                 textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.End),
                                 onValueChange = {
                                     newScoreString.value = it
-                                    newScore.intValue = it.text.toInt()
+                                    newScore.intValue = it.text.trim().toInt()
                                 },
                                 /*
                                     if (it.text.toIntOrNull() != null) {
@@ -792,6 +817,7 @@ class MainActivity : ComponentActivity() {
                                                 newScoreString.value.copy(
                                                     newScore.intValue.toString()
                                                 )
+                                            showStandings.value = true
                                             false
                                         }
                                         true
@@ -817,6 +843,7 @@ class MainActivity : ComponentActivity() {
                                     newScoreString.value = newScoreString.value.copy(
                                         newScore.intValue.toString()
                                     )
+                                    showStandings.value = true
                                 },
                                 content = {
                                     Icon(
@@ -850,6 +877,13 @@ class MainActivity : ComponentActivity() {
                 val repeatWarning = remember { mutableStateOf(false) }
                 Column(
                     modifier = Modifier
+                        .offset(
+                            0.dp,
+                            if (activePlayerIndex.intValue < 0)
+                                20.dp
+                            else
+                                0.dp
+                        )
                         .fillMaxHeight(0.9f)
                         .fillParentMaxWidth(
                             animateFloatAsState(
@@ -863,6 +897,39 @@ class MainActivity : ComponentActivity() {
                         )
                         .padding(all = 5.dp)
                         .drawBehind {
+                            // right shadow
+                            drawRect(
+                                brush =
+                                Brush.horizontalGradient(
+                                    listOf(Color(0x99333333), Color(0x00FFFFFF)),
+                                    size.width + 20f, size.width + 38f,
+                                    TileMode.Decal
+                                ),
+                                Offset(size.width + 4f, 0f),
+                                Size(50.0f, this.size.height + 20f)
+                            )
+                            // bottom shadow
+                            drawRect(
+                                brush =
+                                Brush.verticalGradient(
+                                    listOf(Color(0x00FFFFFF), Color(0x99333333)),
+                                    0f, 25f, TileMode.Mirror
+                                ),
+                                Offset(5f, this.size.height + 20f),
+                                Size(this.size.width + 7f, 25.0f)
+                            )
+                            // corner shadow
+                            drawRect(
+                                brush =
+                                Brush.radialGradient(
+                                    listOf(Color(0x99333333), Color(0x00FFFFFF)),
+                                    Offset(this.size.width + 15f, this.size.height + 15f),
+                                    30f,
+                                    TileMode.Decal
+                                ),
+                                Offset(this.size.width + 13f, this.size.height + 20f),
+                                Size(30f, 30f)
+                            )
                             // top
                             drawLine(
                                 Color.Black,
@@ -890,62 +957,8 @@ class MainActivity : ComponentActivity() {
                                 3.dp.toPx()
                             )
 
-                            drawRect(
-                                brush =
-                                Brush.horizontalGradient(
-                                    listOf(Color(0x00FFFFFF), Color(0x99333333)),
-                                    0f, 30f, TileMode.Mirror
-                                ),
-                                Offset(this.size.width + 13f, 7f),
-                                Size(30.0f, this.size.height + 10f)
-                            )
-
-                            // right shadow
-                            drawRect(
-                                brush =
-                                Brush.horizontalGradient(
-                                    listOf(Color(0x00FFFFFF), Color(0x99333333)),
-                                    0f, 30f, TileMode.Mirror
-                                ),
-                                Offset(this.size.width + 13f, 7f),
-                                Size(30.0f, this.size.height + 10f)
-                            )
-                            if (activePlayerIndex.intValue == -1) {
-                                // bottom shadow
-                                drawRect(
-                                    brush =
-                                    Brush.verticalGradient(
-                                        listOf(Color(0x99333333), Color(0x00FFFFFF)),
-                                        10f, 40f, TileMode.Mirror
-                                    ),
-                                    Offset(5f, this.size.height + 12f),
-                                    Size(this.size.width + 7f, 30.0f)
-                                )
-                                // corner gradient
-                                drawRect(
-                                    brush =
-                                    Brush.linearGradient(
-                                        listOf(Color(0x00FFFFFF), Color(0x99333333)),
-                                        Offset(-10f, -10f), Offset(20f, 20f),
-                                        TileMode.Mirror
-                                    ),
-                                    Offset(this.size.width + 12f, this.size.height + 16f),
-                                    Size(23f, 23f)
-                                )
-                            } else {
-                                // bottom shadow
-                                drawRect(
-                                    brush =
-                                    Brush.verticalGradient(
-                                        listOf(Color(0x99333333), Color(0x00FFFFFF)),
-                                        10f, 40f, TileMode.Mirror
-                                    ),
-                                    Offset(5f, this.size.height + 12f),
-                                    Size(this.size.width + 12f, 30.0f)
-                                )
-
-                            }
                         },
+
                     content = {
                         if (activePlayerIndex.intValue != -1) {
                             Image(
@@ -1074,6 +1087,18 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
+                            Button(
+                                onClick = {
+                                    showStandings.value = true
+                                },
+                                content = {
+                                    Text(stringResource(R.string.standings))
+                                },
+                                modifier = Modifier
+                                    .align(alignment = Alignment.CenterHorizontally)
+                                    .padding(10.dp)
+                            )
+
                             if (!this@MainActivity.fromHistory) {
                                 Button(
                                     onClick = {
@@ -1086,7 +1111,8 @@ class MainActivity : ComponentActivity() {
                                     content = {
                                         Text(stringResource(R.string.choose_first))
                                     },
-                                    modifier = Modifier.align(alignment = Alignment.CenterHorizontally)
+                                    modifier = Modifier
+                                        .align(alignment = Alignment.CenterHorizontally)
                                         .padding(10.dp)
                                 )
                             }

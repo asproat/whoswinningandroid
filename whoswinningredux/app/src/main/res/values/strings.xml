@@ -13,6 +13,8 @@
     <string name="confirm_end">Are you sure you want to end the active game?</string>
     <string name="save_game_name">Enter name of game:</string>
     <string name="winner_label">Winner:</string>
+    <string name="standings_title">Standings:\n\n</string>
+    <string name="standings">Standings</string>
     <string name="high_score">High\nScore</string>
     <string name="low_score">Low\nScore</string>
     <string name="name_exists">Duplicate name.</string>

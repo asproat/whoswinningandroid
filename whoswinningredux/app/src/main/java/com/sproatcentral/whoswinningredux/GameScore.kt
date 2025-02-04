@@ -86,6 +86,20 @@ class GameScores : RealmObject() {
         players.removeAt(userIndex)
     }
 
+    fun standings(context: Context): String {
+        var standings = "${context.getString(R.string.standings_title)}"
+
+        // default sort is ascending, high score should be descending
+        val scoreAdjustment = if(highScoreWinner) -1 else 1
+        val sortedPlayers = players.sortedBy { it.currentScore() * scoreAdjustment }
+
+        for(standingPlayer in sortedPlayers) {
+            standings = standings.plus("${standingPlayer.name}: ${standingPlayer.currentScore()}\n")
+        }
+
+        return standings
+
+    }
     fun winningIndex(): List<Int> {
             val winners = mutableListOf<Int>()
             var winningScore = if (highScoreWinner) 0 else Int.MIN_VALUE
