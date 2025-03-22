@@ -98,7 +98,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.sproatcentral.whoswinningredux.ui.theme.WhoswinningreduxTheme
 import io.realm.Realm
 import kotlinx.coroutines.GlobalScope
@@ -357,13 +356,15 @@ class MainActivity : ComponentActivity() {
                                 //Spacer(Modifier.weight(0.1f))
                                 Row(horizontalArrangement = Arrangement.Center) {
                                     //Spacer(Modifier.weight(0.3f))
-                                    Button(content = { Text(stringResource(R.string.yes)) },
+                                    Button(
+                                        content = { Text(stringResource(R.string.yes)) },
                                         onClick = {
                                             saveGame.value = true
                                         }
                                     )
                                     Spacer(Modifier.weight(0.1f))
-                                    Button(content = { Text(stringResource(R.string.no)) },
+                                    Button(
+                                        content = { Text(stringResource(R.string.no)) },
                                         onClick = {
                                             resetCurrentGame()
                                             showConfirmClose.value = false
@@ -397,7 +398,8 @@ class MainActivity : ComponentActivity() {
                                 )
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(checked = shareGame.value,
+                                    Checkbox(
+                                        checked = shareGame.value,
                                         onCheckedChange = {
                                             shareGame.value = it
                                         })
@@ -453,7 +455,8 @@ class MainActivity : ComponentActivity() {
                             //Spacer(Modifier.weight(0.1f))
                             Row(horizontalArrangement = Arrangement.SpaceAround) {
                                 //Spacer(Modifier.weight(0.3f))
-                                Button(content = { Text(stringResource(R.string.yes)) },
+                                Button(
+                                    content = { Text(stringResource(R.string.yes)) },
                                     onClick = {
                                         resetCurrentGame()
                                         showConfirmClose.value = false
@@ -461,7 +464,8 @@ class MainActivity : ComponentActivity() {
                                     }
                                 )
                                 Spacer(Modifier.weight(0.1f))
-                                Button(content = { Text(stringResource(R.string.no)) },
+                                Button(
+                                    content = { Text(stringResource(R.string.no)) },
                                     onClick = {
                                         showConfirmClose.value = false
                                     }
@@ -475,8 +479,8 @@ class MainActivity : ComponentActivity() {
             )
         }
 
-        if(showStandings.value) {
-            BasicAlertDialog (
+        if (showStandings.value) {
+            BasicAlertDialog(
                 onDismissRequest = {
                     showStandings.value = false
                 },
@@ -499,18 +503,20 @@ class MainActivity : ComponentActivity() {
                 },
                 title = { Text(stringResource(R.string.confirm_remove_player)) },
                 dismissButton = {
-                    Button(content = {
-                        Text(stringResource(R.string.no))
-                    },
+                    Button(
+                        content = {
+                            Text(stringResource(R.string.no))
+                        },
                         onClick = {
                             showRemoveUser.value = false
                         }
                     )
                 },
                 confirmButton = {
-                    Button(content = {
-                        Text(stringResource(R.string.yes))
-                    },
+                    Button(
+                        content = {
+                            Text(stringResource(R.string.yes))
+                        },
                         onClick = {
                             currentGame.value.removePlayer(removePlayer.intValue)
                             currentGame.value.saveToPrefs(this)
@@ -539,18 +545,20 @@ class MainActivity : ComponentActivity() {
                 },
                 title = { Text(stringResource(R.string.confirm_remove_score)) },
                 dismissButton = {
-                    Button(content = {
-                        Text(stringResource(R.string.no))
-                    },
+                    Button(
+                        content = {
+                            Text(stringResource(R.string.no))
+                        },
                         onClick = {
                             showRemoveScore.value = false
                         }
                     )
                 },
                 confirmButton = {
-                    Button(content = {
-                        Text(stringResource(R.string.yes))
-                    },
+                    Button(
+                        content = {
+                            Text(stringResource(R.string.yes))
+                        },
                         onClick = {
                             currentGame.value.players[removePlayer.intValue].removeScore(removeScore.intValue)
                             currentGame.value.saveToPrefs(this)
@@ -593,10 +601,10 @@ class MainActivity : ComponentActivity() {
                             .fillParentMaxWidth(
                                 animateFloatAsState(
                                     targetValue =
-                                    if (activePlayerIndex.intValue == playerIndex)
-                                        0.45f
-                                    else
-                                        0.20f,
+                                        if (activePlayerIndex.intValue == playerIndex)
+                                            0.45f
+                                        else
+                                            0.20f,
                                     animationSpec = tween(durationMillis = 500)
                                 ).value
                             )
@@ -612,11 +620,11 @@ class MainActivity : ComponentActivity() {
                                     // right shadow
                                     drawRect(
                                         brush =
-                                        Brush.horizontalGradient(
-                                            listOf(Color(0x99333333), Color(0x00FFFFFF)),
-                                            size.width + 20f, size.width + 38f,
-                                            TileMode.Decal
-                                        ),
+                                            Brush.horizontalGradient(
+                                                listOf(Color(0x99333333), Color(0x00FFFFFF)),
+                                                size.width + 20f, size.width + 38f,
+                                                TileMode.Decal
+                                            ),
                                         Offset(size.width + 4f, 0f),
                                         Size(50.0f, this.size.height + 20f)
                                     )
@@ -624,24 +632,25 @@ class MainActivity : ComponentActivity() {
                                 // bottom shadow
                                 drawRect(
                                     brush =
-                                    Brush.verticalGradient(
-                                        listOf(Color(0x99333333), Color(0x00FFFFFF)),
-                                        this.size.height + 20f,
-                                        this.size.height + 45f,
-                                        TileMode.Decal
-                                    ),
+                                        Brush.verticalGradient(
+                                            listOf(Color(0x99333333), Color(0x00FFFFFF)),
+                                            this.size.height + 20f,
+                                            this.size.height + 45f,
+                                            TileMode.Decal
+                                        ),
                                     Offset(
                                         this.center.x - (this.size.width / 2f),
-                                        this.size.height + 20f),
+                                        this.size.height + 20f
+                                    ),
                                     Size(
                                         this.size.width +
-                                         if (activePlayerIndex.intValue - 1 == playerIndex ||
-                                             (activePlayerIndex.intValue == -1 &&
-                                              playerIndex == currentGame.value.players.size - 1)
-                                             )
-                                                15f
-                                             else
-                                                33f,
+                                                if (activePlayerIndex.intValue - 1 == playerIndex ||
+                                                    (activePlayerIndex.intValue == -1 &&
+                                                            playerIndex == currentGame.value.players.size - 1)
+                                                )
+                                                    15f
+                                                else
+                                                    33f,
                                         25.0f
                                     )
                                 )
@@ -726,7 +735,8 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
-                        Text(currentGame.value.players[playerIndex].currentScore()
+                        Text(
+                            currentGame.value.players[playerIndex].currentScore()
                             .toString(),
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.End,
@@ -752,7 +762,8 @@ class MainActivity : ComponentActivity() {
                             val newScoreString =
                                 remember { mutableStateOf(TextFieldValue("0")) }
                             val newScore = remember { mutableIntStateOf(0) }
-                            TextField(newScoreString.value,
+                            TextField(
+                                newScoreString.value,
                                 textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.End),
                                 onValueChange = {
                                     newScoreString.value = it
@@ -788,7 +799,8 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 trailingIcon = {
-                                    Icon(painterResource(R.drawable.minus),
+                                    Icon(
+                                        painterResource(R.drawable.minus),
                                         contentDescription = "",
                                         modifier = Modifier
                                             .clickable {
@@ -888,10 +900,10 @@ class MainActivity : ComponentActivity() {
                         .fillParentMaxWidth(
                             animateFloatAsState(
                                 targetValue =
-                                if (activePlayerIndex.intValue == -1)
-                                    0.40f
-                                else
-                                    0.15f,
+                                    if (activePlayerIndex.intValue == -1)
+                                        0.40f
+                                    else
+                                        0.15f,
                                 animationSpec = tween(durationMillis = 500)
                             ).value
                         )
@@ -900,33 +912,33 @@ class MainActivity : ComponentActivity() {
                             // right shadow
                             drawRect(
                                 brush =
-                                Brush.horizontalGradient(
-                                    listOf(Color(0x99333333), Color(0x00FFFFFF)),
-                                    size.width + 20f, size.width + 38f,
-                                    TileMode.Decal
-                                ),
+                                    Brush.horizontalGradient(
+                                        listOf(Color(0x99333333), Color(0x00FFFFFF)),
+                                        size.width + 20f, size.width + 38f,
+                                        TileMode.Decal
+                                    ),
                                 Offset(size.width + 4f, 0f),
                                 Size(50.0f, this.size.height + 20f)
                             )
                             // bottom shadow
                             drawRect(
                                 brush =
-                                Brush.verticalGradient(
-                                    listOf(Color(0x00FFFFFF), Color(0x99333333)),
-                                    0f, 25f, TileMode.Mirror
-                                ),
+                                    Brush.verticalGradient(
+                                        listOf(Color(0x00FFFFFF), Color(0x99333333)),
+                                        0f, 25f, TileMode.Mirror
+                                    ),
                                 Offset(5f, this.size.height + 20f),
                                 Size(this.size.width + 7f, 25.0f)
                             )
                             // corner shadow
                             drawRect(
                                 brush =
-                                Brush.radialGradient(
-                                    listOf(Color(0x99333333), Color(0x00FFFFFF)),
-                                    Offset(this.size.width + 15f, this.size.height + 15f),
-                                    30f,
-                                    TileMode.Decal
-                                ),
+                                    Brush.radialGradient(
+                                        listOf(Color(0x99333333), Color(0x00FFFFFF)),
+                                        Offset(this.size.width + 15f, this.size.height + 15f),
+                                        30f,
+                                        TileMode.Decal
+                                    ),
                                 Offset(this.size.width + 13f, this.size.height + 20f),
                                 Size(30f, 30f)
                             )
@@ -986,7 +998,8 @@ class MainActivity : ComponentActivity() {
                                         style = TextStyle(fontSize = 14.sp),
                                         modifier = Modifier.padding(5.dp)
                                     )
-                                    Switch(checked = winnerHighScore.value,
+                                    Switch(
+                                        checked = winnerHighScore.value,
                                         onCheckedChange = {
                                             winnerHighScore.value = it
                                             currentGame.value.highScoreWinner =

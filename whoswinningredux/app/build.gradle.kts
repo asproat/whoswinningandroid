@@ -4,12 +4,13 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.serialization)
     alias(libs.plugins.android.ksp)
     alias(libs.plugins.androidx.room)
+    alias(libs.plugins.compose.compiler)
 }
 
 
 android {
     namespace = "com.sproatcentral.whoswinningredux"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.sproatcentral.whoswinning"

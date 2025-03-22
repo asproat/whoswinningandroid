@@ -8,7 +8,6 @@ import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Ignore
-import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
@@ -21,7 +20,6 @@ import io.realm.RealmConfiguration
 import io.realm.RealmObject
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.time.LocalDateTime
 import java.time.ZonedDateTime
@@ -56,10 +54,10 @@ interface GameScoresDao {
     fun insertAll(vararg gameScores: GameScores)
 
     @Insert
-    fun insertGamePlayer(gamePlayer: GamePlayer) : Long
+    fun insertGamePlayer(gamePlayer: GamePlayer): Long
 
     @Insert
-    fun insertGamePlayerScore(gamePlayerScore: GamePlayerScore) : Long
+    fun insertGamePlayerScore(gamePlayerScore: GamePlayerScore): Long
 
     @Delete
     fun delete(gameScores: GameScores)
@@ -71,6 +69,7 @@ class GameScores : RealmObject() {
 
     var gameName = ""
     var highScoreWinner = true
+
     @PrimaryKey
     @io.realm.annotations.PrimaryKey
     var gameDate = LocalDateTime.now().toEpochSecond(ZonedDateTime.now().offset)
@@ -90,33 +89,34 @@ class GameScores : RealmObject() {
         var standings = "${context.getString(R.string.standings_title)}"
 
         // default sort is ascending, high score should be descending
-        val scoreAdjustment = if(highScoreWinner) -1 else 1
+        val scoreAdjustment = if (highScoreWinner) -1 else 1
         val sortedPlayers = players.sortedBy { it.currentScore() * scoreAdjustment }
 
-        for(standingPlayer in sortedPlayers) {
+        for (standingPlayer in sortedPlayers) {
             standings = standings.plus("${standingPlayer.name}: ${standingPlayer.currentScore()}\n")
         }
 
         return standings
 
     }
+
     fun winningIndex(): List<Int> {
-            val winners = mutableListOf<Int>()
-            var winningScore = if (highScoreWinner) 0 else Int.MIN_VALUE
-            val scoreAdjustment = if (highScoreWinner) 1 else -1
+        val winners = mutableListOf<Int>()
+        var winningScore = if (highScoreWinner) 0 else Int.MIN_VALUE
+        val scoreAdjustment = if (highScoreWinner) 1 else -1
 
-            for (playerIndex in 0..<players.size) {
-                if (players[playerIndex].currentScore() * scoreAdjustment > winningScore) {
-                    winners.clear()
-                    winners.add(playerIndex)
-                    winningScore = players[playerIndex].currentScore() * scoreAdjustment
-                } else if (players[playerIndex].currentScore() * scoreAdjustment == winningScore) {
-                    winners.add(playerIndex)
-                }
+        for (playerIndex in 0..<players.size) {
+            if (players[playerIndex].currentScore() * scoreAdjustment > winningScore) {
+                winners.clear()
+                winners.add(playerIndex)
+                winningScore = players[playerIndex].currentScore() * scoreAdjustment
+            } else if (players[playerIndex].currentScore() * scoreAdjustment == winningScore) {
+                winners.add(playerIndex)
             }
-
-            return winners
         }
+
+        return winners
+    }
 
     fun saveToPrefs(context: Context) {
         val prefs = context.getSharedPreferences("whosWinning", Context.MODE_PRIVATE).edit()
@@ -130,7 +130,7 @@ class GameScores : RealmObject() {
         prefs.commit()
     }
 
-    fun prepRoom(context: Context) : AppDatabase {
+    fun prepRoom(context: Context): AppDatabase {
         return Room.databaseBuilder(
             context,
             AppDatabase::class.java, "database-name"
@@ -169,12 +169,15 @@ class GameScores : RealmObject() {
         entity = GameScores::class,
         parentColumns = ["gameDate"],
         childColumns = ["gameDate"],
-        onDelete = ForeignKey.CASCADE)])
+        onDelete = ForeignKey.CASCADE
+    )]
+)
 class GamePlayer : RealmObject() {
 
     @PrimaryKey(autoGenerate = true)
     @Transient
     var _id = 0
+
     @Transient
     var gameDate = 0L
     var name = ""
@@ -225,11 +228,14 @@ class GameScoreWithPlayersAndScores {
         entity = GamePlayer::class,
         parentColumns = ["_id"],
         childColumns = ["gamePlayerId"],
-        onDelete = ForeignKey.CASCADE)])
+        onDelete = ForeignKey.CASCADE
+    )]
+)
 class GamePlayerScore : RealmObject() {
     @PrimaryKey(autoGenerate = true)
     @Transient
     var _id = 0
+
     @Transient
     var gamePlayerId = 0
     var score = 0
